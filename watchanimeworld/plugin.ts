@@ -36,31 +36,49 @@
     }
 
     async function getHome(cb: any) {
-        const homeUrl = `${manifest.baseUrl}/`;
         try {
-            const req = await http_get(homeUrl, { headers: HEADERS });
-            const html = req.body || "";
-            const $ = LoadDoc(html);
+            const sections = [
+                { title: "New Episodes", path: "/" },
+                { title: "Ongoing Anime", path: "/status/ongoing/" },
+                { title: "Movies", path: "/movies/" },
+                { title: "Trending", path: "/trending/" }
+            ];
             
-            const results: any[] = [];
-            const items = $(SELECTORS.SEARCH_ITEM);
-            items.each((_i: any, s: any) => {
-                const titleEl = s.find(SELECTORS.SEARCH_TITLE);
-                let title = titleEl.text().trim();
-                title = title.replace(/\s*(?:\(\d{4}\)|Season|BluRay|HD|Multi Audio|Dual Audio|Hindi|Tamil|Telugu|\[).*$/i, '').replace(/[\(\)-]+$/, '').trim();
-                const url = s.find(SELECTORS.SEARCH_LINK).attr("href");
-                if (!title || !url || url.includes('/episode/')) return;
-                
-                let posterUrl = s.find('img').attr('src');
-                
-                results.push(new MultimediaItem({
-                    title: title,
-                    url: url,
-                    type: 'tv',
-                    posterUrl: posterUrl
-                }));
-            });
-            cb({ success: true, data: { "Latest Updates": results } });
+            const home: any = {};
+            
+            for (const sec of sections) {
+                try {
+                    const req = await http_get(`${manifest.baseUrl}${sec.path}`, { headers: HEADERS });
+                    const html = req.body || "";
+                    const $ = LoadDoc(html);
+                    
+                    const results: any[] = [];
+                    $(SELECTORS.SEARCH_ITEM).each((_i: any, s: any) => {
+                        const titleEl = s.find(SELECTORS.SEARCH_TITLE);
+                        let title = titleEl.text().trim();
+                        title = title.replace(/\s*(?:\(\d{4}\)|Season|BluRay|HD|Multi Audio|Dual Audio|Hindi|Tamil|Telugu|\[).*$/i, '').replace(/[\(\)-]+$/, '').trim();
+                        const url = s.find(SELECTORS.SEARCH_LINK).attr("href");
+                        if (!title || !url || url.includes('/episode/')) return;
+                        
+                        let posterUrl = s.find('img').attr('src') || s.find('img').attr('data-src');
+                        
+                        results.push(new MultimediaItem({
+                            title: title,
+                            url: url,
+                            type: 'tv',
+                            posterUrl: posterUrl
+                        }));
+                    });
+                    
+                    if (results.length > 0) {
+                        home[sec.title] = results.slice(0, 20); // Show top 20 in each category
+                    }
+                } catch (e) {
+                    // Ignore errors for individual sections
+                }
+            }
+            
+            cb({ success: true, data: home });
         } catch (e: any) {
             cb({ success: false, message: String(e) });
         }
