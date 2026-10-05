@@ -1,10 +1,12 @@
 {
   "packageName": "com.skystream.watchanimeworld",
   "name": "WatchAnimeWorld",
-  "version": "1.0.0",
+  "version": 1,
   "author": "displaygamer",
   "baseUrl": "https://watchanimeworld.one",
   "domains": [
     { "name": "watchanimeworld.one", "url": "https://watchanimeworld.one" }
-  ]
+  ],
+  "languages": ["hi", "en"],
+  "categories": ["Anime"]
 }

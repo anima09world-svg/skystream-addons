@@ -188,10 +188,9 @@
         }
     }
 
-    return {
-        getHome,
-        search,
-        load,
-        loadStreams
-    };
+    // Export to global scope for namespaced IIFE capture
+    (globalThis as any).getHome = getHome;
+    (globalThis as any).search = search;
+    (globalThis as any).load = load;
+    (globalThis as any).loadStreams = loadStreams;
 })();
