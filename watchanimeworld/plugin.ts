@@ -19,6 +19,7 @@
     declare const LoadDoc: any;
     declare class MultimediaItem { constructor(data: any); }
     declare class EpisodeItem { constructor(data: any); }
+    declare const http_get: any;
 
     function extractEpisodeInfo(url: string, title: string) {
         let season = 1;
@@ -37,8 +38,8 @@
     async function getHome(cb: any) {
         const homeUrl = `${manifest.baseUrl}/`;
         try {
-            const req = await fetch(homeUrl, { headers: HEADERS });
-            const html = await req.text();
+            const req = await http_get(homeUrl, { headers: HEADERS });
+            const html = req.body || "";
             const $ = LoadDoc(html);
             
             const results: any[] = [];
@@ -68,8 +69,8 @@
     async function search(query: string, cb: any) {
         const searchUrl = `${manifest.baseUrl}/?s=${encodeURIComponent(query)}`;
         try {
-            const req = await fetch(searchUrl, { headers: HEADERS });
-            const html = await req.text();
+            const req = await http_get(searchUrl, { headers: HEADERS });
+            const html = req.body || "";
             const $ = LoadDoc(html);
             
             const results: any[] = [];
@@ -99,8 +100,8 @@
 
     async function load(url: string, cb: any) {
         try {
-            const req = await fetch(url, { headers: HEADERS });
-            const html = await req.text();
+            const req = await http_get(url, { headers: HEADERS });
+            const html = req.body || "";
             const $ = LoadDoc(html);
             
             const episodes: any[] = [];
@@ -144,8 +145,8 @@
 
     async function loadStreams(url: string, cb: any) {
         try {
-            const req = await fetch(url, { headers: HEADERS });
-            const html = await req.text();
+            const req = await http_get(url, { headers: HEADERS });
+            const html = req.body || "";
             const $ = LoadDoc(html);
             
             const iframeSrc = $('iframe[src*="/dub-player/"]').attr('src');
@@ -154,8 +155,8 @@
             }
             
             const embedUrl = iframeSrc.startsWith("http") ? iframeSrc : `${manifest.baseUrl}${iframeSrc}`;
-            const embedReq = await fetch(embedUrl, { headers: { ...HEADERS, "Referer": url }});
-            const embedHtml = await embedReq.text();
+            const embedReq = await http_get(embedUrl, { headers: { ...HEADERS, "Referer": url }});
+            const embedHtml = embedReq.body || "";
             
             const configMatch = embedHtml.match(/var\s+CONFIG\s*=\s*(\{.*?\});/);
             if (!configMatch) {
