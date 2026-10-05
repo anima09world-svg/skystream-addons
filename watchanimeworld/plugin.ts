@@ -6,7 +6,7 @@
 
     declare const manifest: any;
     declare class MultimediaItem { constructor(data: any); }
-    declare class EpisodeItem { constructor(data: any); }
+    declare class Episode { constructor(data: any); }
     declare const http_get: any;
 
     function extractEpisodeInfo(url: string, title: string) {
@@ -40,8 +40,10 @@
             let imgMatch = articleHtml.match(/<img[^>]+src=["']([^"']+)["']/i);
             if (!imgMatch || imgMatch[1].includes("data:image")) imgMatch = articleHtml.match(/<img[^>]+data-src=["']([^"']+)["']/i);
             let posterUrl = imgMatch ? imgMatch[1] : "";
+            if (posterUrl.startsWith("//")) posterUrl = "https:" + posterUrl;
+            else if (posterUrl.startsWith("/") && !posterUrl.startsWith("//")) posterUrl = manifest.baseUrl + posterUrl;
             
-            if (url && title && !url.includes('/episode/')) {
+            if (url && title && !url.includes('/episode/') && !url.includes('${')) {
                 title = title.replace(/\s*(?:\(\d{4}\)|Season|BluRay|HD|Multi Audio|Dual Audio|Hindi|Tamil|Telugu|\[).*$/i, '').replace(/[\(\)-]+$/, '').trim();
                 results.push(new MultimediaItem({
                     title: title,
@@ -116,7 +118,7 @@
                 const epTitle = titleMatch ? titleMatch[1].replace(/<[^>]+>/g, "").trim() : "";
                 const { season, episode } = extractEpisodeInfo(epUrl, numStr);
                 
-                episodes.push(new EpisodeItem({
+                episodes.push(new Episode({
                     title: epTitle || `Episode ${episode}`,
                     url: epUrl,
                     episode: episode,
