@@ -1,0 +1,16 @@
+[
+  {
+    "packageName": "com.skystream.watchanimeworld",
+    "name": "WatchAnimeWorld",
+    "version": "1.0.0",
+    "author": "displaygamer",
+    "baseUrl": "https://watchanimeworld.one",
+    "domains": [
+      {
+        "name": "watchanimeworld.one",
+        "url": "https://watchanimeworld.one"
+      }
+    ],
+    "url": "https://raw.githubusercontent.com/anima09world-svg/skystream-addons/main/dist/com.skystream.watchanimeworld.sky"
+  }
+]

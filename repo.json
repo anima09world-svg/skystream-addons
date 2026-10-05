@@ -1,0 +1,9 @@
+{
+  "name": "Skystream Addons",
+  "packageName": "com.skystream.addons",
+  "description": "My SkyStream plugins repository",
+  "manifestVersion": 1,
+  "pluginLists": [
+    "https://raw.githubusercontent.com/anima09world-svg/skystream-addons/main/dist/plugins.json"
+  ]
+}
