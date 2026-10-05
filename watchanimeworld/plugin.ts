@@ -12,11 +12,11 @@
     function extractEpisodeInfo(url: string, title: string) {
         let season = 1;
         let episode = 1;
-        const urlMatch = url.match(/(\d+)x(\d+)[^/]*$/i);
+        const urlMatch = url.match(/(\d+)x(\d+)[^\/]*\/?$/i);
         if (urlMatch) {
             return { season: parseInt(urlMatch[1], 10), episode: parseInt(urlMatch[2], 10) };
         }
-        const titleMatch = title.match(/(\d+)x(\d+)/i);
+        const titleMatch = title.match(/(\d+)x(\d+)/i) || title.match(/S:?(\d+)-E:?(\d+)/i);
         if (titleMatch) {
             return { season: parseInt(titleMatch[1], 10), episode: parseInt(titleMatch[2], 10) };
         }
@@ -106,6 +106,9 @@
             
             let m;
             while ((m = episodeRegex.exec(html)) !== null) {
+                const aTag = m[0];
+                if (aTag.includes('class="lnk-blk"')) continue;
+                
                 const epUrl = m[1];
                 if (seenUrls.has(epUrl)) continue;
                 seenUrls.add(epUrl);
@@ -114,9 +117,9 @@
                 const numMatch = epHtml.match(/<[^>]+class=["'][^"']*num-epi[^"']*["'][^>]*>([\s\S]*?)<\/[^>]+>/i);
                 const titleMatch = epHtml.match(/<[^>]+class=["'][^"']*entry-title[^"']*["'][^>]*>([\s\S]*?)<\/[^>]+>/i);
                 
-                const numStr = numMatch ? numMatch[1].replace(/<[^>]+>/g, "").trim() : "";
-                const epTitle = titleMatch ? titleMatch[1].replace(/<[^>]+>/g, "").trim() : "";
-                const { season, episode } = extractEpisodeInfo(epUrl, numStr);
+                const numStr = numMatch ? numMatch[1].replace(/<[^>]+>/g, "").trim() : epHtml.replace(/<[^>]+>/g, "").trim();
+                const epTitle = titleMatch ? titleMatch[1].replace(/<[^>]+>/g, "").trim() : numStr;
+                const { season, episode } = extractEpisodeInfo(epUrl, epTitle);
                 
                 episodes.push(new Episode({
                     title: epTitle || `Episode ${episode}`,
@@ -151,36 +154,17 @@
             const req = await http_get(url, { headers: HEADERS });
             const html = req.body || "";
             
-            const iframeMatch = html.match(/<iframe[^>]+src=["']([^"']*\/dub-player\/[^"']+)["']/i);
+            const iframeMatch = html.match(/<iframe[^>]+src=["']([^"']+)["']/i);
             if (!iframeMatch) return cb({ success: false, message: "Could not find video player iframe." });
             
             const iframeSrc = iframeMatch[1];
             const embedUrl = iframeSrc.startsWith("http") ? iframeSrc : `${manifest.baseUrl}${iframeSrc}`;
-            const embedReq = await http_get(embedUrl, { headers: { ...HEADERS, "Referer": url }});
-            const embedHtml = embedReq.body || "";
             
-            const configMatch = embedHtml.match(/var\s+CONFIG\s*=\s*(\{.*?\});/);
-            if (!configMatch) return cb({ success: false, message: "Could not find AbyssPlayer config in embed." });
-            
-            let config = JSON.parse(configMatch[1]);
-            const streams: any[] = [];
-            
-            if (config.ready && typeof config.ready === 'object') {
-                for (const langKey of Object.keys(config.ready)) {
-                    const videoId = config.ready[langKey];
-                    const langName = config.lang && config.lang[langKey] ? config.lang[langKey].name : langKey;
-                    const abyssUrl = config.prefix + videoId;
-                    
-                    streams.push({
-                        url: abyssUrl,
-                        quality: "Auto",
-                        name: `AbyssPlayer (${langName})`
-                    });
-                }
-            }
-            
-            if (streams.length === 0) return cb({ success: false, message: "No ready streams found in config." });
-            cb({ success: true, data: streams });
+            cb({ success: true, data: [{
+                url: embedUrl,
+                quality: "Auto",
+                name: embedUrl.includes("zephyrix") ? "Zephyrix Player" : "Web Player"
+            }]});
         } catch (e: any) {
             cb({ success: false, message: String(e) });
         }
