@@ -4,19 +4,7 @@
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
     };
 
-    const SELECTORS = {
-        SEARCH_ITEM: "article.post, article.item",
-        SEARCH_TITLE: ".entry-title",
-        SEARCH_LINK: "a.lnk-blk, a[rel='bookmark']",
-        EPISODE_ITEM: "article.episodes",
-        EPISODE_LINK: "a.lnk-blk",
-        EPISODE_NUMBER: ".num-epi",
-        EPISODE_TITLE: ".entry-title"
-    };
-
-    // Assuming manifest, LoadDoc, MultimediaItem, EpisodeItem are globally injected by SkyStream
     declare const manifest: any;
-    declare const LoadDoc: any;
     declare class MultimediaItem { constructor(data: any); }
     declare class EpisodeItem { constructor(data: any); }
     declare const http_get: any;
@@ -35,6 +23,37 @@
         return { season, episode };
     }
 
+    function parseHtmlToItems(html: string) {
+        const results: any[] = [];
+        const articleRegex = /<article[^>]*>([\s\S]*?)<\/article>/gi;
+        let match;
+        while ((match = articleRegex.exec(html)) !== null) {
+            const articleHtml = match[1];
+            
+            const urlMatch = articleHtml.match(/<a[^>]+href=["']([^"']+)["']/i);
+            const url = urlMatch ? urlMatch[1] : "";
+            
+            let titleMatch = articleHtml.match(/<[^>]+class=["'][^"']*entry-title[^"']*["'][^>]*>([\s\S]*?)<\/[^>]+>/i);
+            if (!titleMatch) titleMatch = articleHtml.match(/<img[^>]+alt=["']([^"']+)["']/i);
+            let title = titleMatch ? titleMatch[1].replace(/<[^>]+>/g, "").trim() : "";
+            
+            let imgMatch = articleHtml.match(/<img[^>]+src=["']([^"']+)["']/i);
+            if (!imgMatch || imgMatch[1].includes("data:image")) imgMatch = articleHtml.match(/<img[^>]+data-src=["']([^"']+)["']/i);
+            let posterUrl = imgMatch ? imgMatch[1] : "";
+            
+            if (url && title && !url.includes('/episode/')) {
+                title = title.replace(/\s*(?:\(\d{4}\)|Season|BluRay|HD|Multi Audio|Dual Audio|Hindi|Tamil|Telugu|\[).*$/i, '').replace(/[\(\)-]+$/, '').trim();
+                results.push(new MultimediaItem({
+                    title: title,
+                    url: url,
+                    type: 'tv',
+                    posterUrl: posterUrl
+                }));
+            }
+        }
+        return results;
+    }
+
     async function getHome(cb: any) {
         try {
             const sections = [
@@ -50,34 +69,12 @@
                 try {
                     const req = await http_get(`${manifest.baseUrl}${sec.path}`, { headers: HEADERS });
                     const html = req.body || "";
-                    const $ = LoadDoc(html);
-                    
-                    const results: any[] = [];
-                    $(SELECTORS.SEARCH_ITEM).each((_i: any, s: any) => {
-                        const titleEl = s.find(SELECTORS.SEARCH_TITLE);
-                        let title = titleEl.text().trim();
-                        title = title.replace(/\s*(?:\(\d{4}\)|Season|BluRay|HD|Multi Audio|Dual Audio|Hindi|Tamil|Telugu|\[).*$/i, '').replace(/[\(\)-]+$/, '').trim();
-                        const url = s.find(SELECTORS.SEARCH_LINK).attr("href");
-                        if (!title || !url || url.includes('/episode/')) return;
-                        
-                        let posterUrl = s.find('img').attr('src') || s.find('img').attr('data-src');
-                        
-                        results.push(new MultimediaItem({
-                            title: title,
-                            url: url,
-                            type: 'tv',
-                            posterUrl: posterUrl
-                        }));
-                    });
-                    
+                    const results = parseHtmlToItems(html);
                     if (results.length > 0) {
-                        home[sec.title] = results.slice(0, 20); // Show top 20 in each category
+                        home[sec.title] = results.slice(0, 20);
                     }
-                } catch (e) {
-                    // Ignore errors for individual sections
-                }
+                } catch (e) {}
             }
-            
             cb({ success: true, data: home });
         } catch (e: any) {
             cb({ success: false, message: String(e) });
@@ -89,27 +86,7 @@
         try {
             const req = await http_get(searchUrl, { headers: HEADERS });
             const html = req.body || "";
-            const $ = LoadDoc(html);
-            
-            const results: any[] = [];
-            const items = $(SELECTORS.SEARCH_ITEM);
-            
-            items.each((_i: any, s: any) => {
-                const titleEl = s.find(SELECTORS.SEARCH_TITLE);
-                let title = titleEl.text().trim();
-                title = title.replace(/\s*(?:\(\d{4}\)|Season|BluRay|HD|Multi Audio|Dual Audio|Hindi|Tamil|Telugu|\[).*$/i, '').replace(/[\(\)-]+$/, '').trim();
-                const url = s.find(SELECTORS.SEARCH_LINK).attr("href");
-                if (!title || !url || url.includes('/episode/')) return;
-                
-                let posterUrl = s.find('img').attr('src');
-                
-                results.push(new MultimediaItem({
-                    title: title,
-                    url: url,
-                    type: 'tv',
-                    posterUrl: posterUrl
-                }));
-            });
+            const results = parseHtmlToItems(html);
             cb({ success: true, data: results });
         } catch (e: any) {
             cb({ success: false, message: String(e) });
@@ -120,19 +97,23 @@
         try {
             const req = await http_get(url, { headers: HEADERS });
             const html = req.body || "";
-            const $ = LoadDoc(html);
             
             const episodes: any[] = [];
-            const items = $(SELECTORS.EPISODE_ITEM);
+            const episodeRegex = /<a[^>]+href=["']([^"']+episode[^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
             const seenUrls = new Set();
             
-            items.each((_i: any, s: any) => {
-                const epUrl = s.find(SELECTORS.EPISODE_LINK).attr("href");
-                if (!epUrl || seenUrls.has(epUrl)) return;
+            let m;
+            while ((m = episodeRegex.exec(html)) !== null) {
+                const epUrl = m[1];
+                if (seenUrls.has(epUrl)) continue;
                 seenUrls.add(epUrl);
                 
-                const numStr = s.find(SELECTORS.EPISODE_NUMBER).text().trim();
-                const epTitle = s.find(SELECTORS.EPISODE_TITLE).text().trim();
+                const epHtml = m[2];
+                const numMatch = epHtml.match(/<[^>]+class=["'][^"']*num-epi[^"']*["'][^>]*>([\s\S]*?)<\/[^>]+>/i);
+                const titleMatch = epHtml.match(/<[^>]+class=["'][^"']*entry-title[^"']*["'][^>]*>([\s\S]*?)<\/[^>]+>/i);
+                
+                const numStr = numMatch ? numMatch[1].replace(/<[^>]+>/g, "").trim() : "";
+                const epTitle = titleMatch ? titleMatch[1].replace(/<[^>]+>/g, "").trim() : "";
                 const { season, episode } = extractEpisodeInfo(epUrl, numStr);
                 
                 episodes.push(new EpisodeItem({
@@ -141,21 +122,23 @@
                     episode: episode,
                     season: season
                 }));
-            });
+            }
             
             episodes.reverse();
             
-            const title = $('.entry-title').first().text().trim();
-            const poster = $('.post-thumbnail img').attr('src');
+            const titleMatch = html.match(/<[^>]+class=["'][^"']*entry-title[^"']*["'][^>]*>([\s\S]*?)<\/[^>]+>/i);
+            const title = titleMatch ? titleMatch[1].replace(/<[^>]+>/g, "").trim() : "Unknown Title";
             
-            const result = new MultimediaItem({
+            const posterMatch = html.match(/<div[^>]+class=["'][^"']*post-thumbnail[^"']*["'][^>]*>[\s\S]*?<img[^>]+src=["']([^"']+)["']/i);
+            const poster = posterMatch ? posterMatch[1] : "";
+            
+            cb({ success: true, data: new MultimediaItem({
                 title: title,
                 url: url,
                 type: 'tv',
                 episodes: episodes,
                 posterUrl: poster
-            });
-            cb({ success: true, data: result });
+            }) });
         } catch (e: any) {
             cb({ success: false, message: String(e) });
         }
@@ -165,21 +148,17 @@
         try {
             const req = await http_get(url, { headers: HEADERS });
             const html = req.body || "";
-            const $ = LoadDoc(html);
             
-            const iframeSrc = $('iframe[src*="/dub-player/"]').attr('src');
-            if (!iframeSrc) {
-                return cb({ success: false, message: "Could not find video player iframe." });
-            }
+            const iframeMatch = html.match(/<iframe[^>]+src=["']([^"']*\/dub-player\/[^"']+)["']/i);
+            if (!iframeMatch) return cb({ success: false, message: "Could not find video player iframe." });
             
+            const iframeSrc = iframeMatch[1];
             const embedUrl = iframeSrc.startsWith("http") ? iframeSrc : `${manifest.baseUrl}${iframeSrc}`;
             const embedReq = await http_get(embedUrl, { headers: { ...HEADERS, "Referer": url }});
             const embedHtml = embedReq.body || "";
             
             const configMatch = embedHtml.match(/var\s+CONFIG\s*=\s*(\{.*?\});/);
-            if (!configMatch) {
-                return cb({ success: false, message: "Could not find AbyssPlayer config in embed." });
-            }
+            if (!configMatch) return cb({ success: false, message: "Could not find AbyssPlayer config in embed." });
             
             let config = JSON.parse(configMatch[1]);
             const streams: any[] = [];
@@ -198,16 +177,13 @@
                 }
             }
             
-            if (streams.length === 0) {
-                return cb({ success: false, message: "No ready streams found in config." });
-            }
+            if (streams.length === 0) return cb({ success: false, message: "No ready streams found in config." });
             cb({ success: true, data: streams });
         } catch (e: any) {
             cb({ success: false, message: String(e) });
         }
     }
 
-    // Export to global scope for namespaced IIFE capture
     (globalThis as any).getHome = getHome;
     (globalThis as any).search = search;
     (globalThis as any).load = load;
