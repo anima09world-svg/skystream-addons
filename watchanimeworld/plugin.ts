@@ -101,48 +101,91 @@
             const html = req.body || "";
             
             const episodes: any[] = [];
-            const episodeRegex = /<a[^>]+href=["']([^"']+episode[^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
             const seenUrls = new Set();
             
+            const articleRegex = /<article[^>]+class=["'][^"']*episodes[^"']*["'][^>]*>([\s\S]*?)<\/article>/gi;
             let m;
-            while ((m = episodeRegex.exec(html)) !== null) {
-                const aTag = m[0];
-                if (aTag.includes('class="lnk-blk"')) continue;
+            while ((m = articleRegex.exec(html)) !== null) {
+                const articleHtml = m[1];
+                const urlMatch = articleHtml.match(/<a[^>]+href=["']([^"']+)["']/i);
+                if (!urlMatch) continue;
+                const epUrl = urlMatch[1];
                 
-                const epUrl = m[1];
                 if (seenUrls.has(epUrl)) continue;
                 seenUrls.add(epUrl);
                 
-                const epHtml = m[2];
-                const numMatch = epHtml.match(/<[^>]+class=["'][^"']*num-epi[^"']*["'][^>]*>([\s\S]*?)<\/[^>]+>/i);
-                const titleMatch = epHtml.match(/<[^>]+class=["'][^"']*entry-title[^"']*["'][^>]*>([\s\S]*?)<\/[^>]+>/i);
+                const numMatch = articleHtml.match(/<[^>]+class=["'][^"']*num-epi[^"']*["'][^>]*>([\s\S]*?)<\/[^>]+>/i);
+                const titleMatch = articleHtml.match(/<[^>]+class=["'][^"']*entry-title[^"']*["'][^>]*>([\s\S]*?)<\/[^>]+>/i);
                 
-                const numStr = numMatch ? numMatch[1].replace(/<[^>]+>/g, "").trim() : epHtml.replace(/<[^>]+>/g, "").trim();
+                const numStr = numMatch ? numMatch[1].replace(/<[^>]+>/g, "").trim() : epUrl;
                 const epTitle = titleMatch ? titleMatch[1].replace(/<[^>]+>/g, "").trim() : numStr;
+                
+                let posterMatch = articleHtml.match(/<img[^>]+src=["']([^"']+)["']/i);
+                if (!posterMatch || posterMatch[1].includes("data:image")) posterMatch = articleHtml.match(/<img[^>]+data-src=["']([^"']+)["']/i);
+                let epPoster = posterMatch ? posterMatch[1] : "";
+                
                 const { season, episode } = extractEpisodeInfo(epUrl, epTitle);
                 
                 episodes.push(new Episode({
                     title: epTitle || `Episode ${episode}`,
                     url: epUrl,
                     episode: episode,
-                    season: season
+                    season: season,
+                    posterUrl: epPoster,
+                    thumbnail: epPoster
                 }));
             }
             
-            episodes.reverse();
+            // Fallback for older theme/movies
+            if (episodes.length === 0) {
+                const episodeRegex = /<a[^>]+href=["']([^"']+episode[^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+                while ((m = episodeRegex.exec(html)) !== null) {
+                    const aTag = m[0];
+                    if (aTag.includes('class="lnk-blk"')) continue;
+                    
+                    const epUrl = m[1];
+                    if (seenUrls.has(epUrl)) continue;
+                    seenUrls.add(epUrl);
+                    
+                    const epHtml = m[2];
+                    const numMatch = epHtml.match(/<[^>]+class=["'][^"']*num-epi[^"']*["'][^>]*>([\s\S]*?)<\/[^>]+>/i);
+                    const titleMatch = epHtml.match(/<[^>]+class=["'][^"']*entry-title[^"']*["'][^>]*>([\s\S]*?)<\/[^>]+>/i);
+                    
+                    const numStr = numMatch ? numMatch[1].replace(/<[^>]+>/g, "").trim() : epHtml.replace(/<[^>]+>/g, "").trim();
+                    const epTitle = titleMatch ? titleMatch[1].replace(/<[^>]+>/g, "").trim() : numStr;
+                    const { season, episode } = extractEpisodeInfo(epUrl, epTitle);
+                    
+                    episodes.push(new Episode({
+                        title: epTitle || `Episode ${episode}`,
+                        url: epUrl,
+                        episode: episode,
+                        season: season
+                    }));
+                }
+                episodes.reverse();
+            }
             
             const titleMatch = html.match(/<[^>]+class=["'][^"']*entry-title[^"']*["'][^>]*>([\s\S]*?)<\/[^>]+>/i);
             const title = titleMatch ? titleMatch[1].replace(/<[^>]+>/g, "").trim() : "Unknown Title";
             
             const posterMatch = html.match(/<div[^>]+class=["'][^"']*post-thumbnail[^"']*["'][^>]*>[\s\S]*?<img[^>]+src=["']([^"']+)["']/i);
             const poster = posterMatch ? posterMatch[1] : "";
+
+            let description = "";
+            let descMatch = html.match(/<div[^>]*class=["'][^"']*wp-content[^"']*["'][^>]*>([\s\S]*?)<\/div>/i);
+            if (!descMatch) descMatch = html.match(/<div[^>]*class=["'][^"']*description[^"']*["'][^>]*>([\s\S]*?)<\/div>/i);
+            if (descMatch) {
+                description = descMatch[1].replace(/<[^>]+>/g, " ").trim();
+                description = description.replace(/\s{2,}/g, " ");
+            }
             
             cb({ success: true, data: new MultimediaItem({
                 title: title,
                 url: url,
                 type: 'tv',
                 episodes: episodes,
-                posterUrl: poster
+                posterUrl: poster,
+                description: description
             }) });
         } catch (e: any) {
             cb({ success: false, message: String(e) });

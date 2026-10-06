@@ -1,0 +1,13 @@
+node_modules/
+.env
+.DS_Store
+*.log
+*.html
+*.txt
+check_servers.js
+fetch_ep.js
+fetch_iframe.js
+fetch_series.js
+find_ep.js
+parse_series.js
+test_regex.js
