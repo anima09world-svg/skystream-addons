@@ -197,6 +197,34 @@
             const req = await http_get(url, { headers: HEADERS });
             const html = req.body || "";
             
+            const results: any[] = [];
+            const serverRegex = /<a[^>]+href=["']#([^"']+)["'][^>]*>[\s\S]*?<span[^>]*class=["'][^"']*server[^"']*["'][^>]*>([\s\S]*?)<\/span>[\s\S]*?<\/a>/gi;
+            let m;
+            while ((m = serverRegex.exec(html)) !== null) {
+               const targetId = m[1];
+               const serverName = m[2].trim();
+               
+               const targetDivRegex = new RegExp(`<div[^>]+id=["']${targetId}["'][^>]*>([\\s\\S]*?)<\\/div>`, 'i');
+               const divMatch = html.match(targetDivRegex);
+               if (divMatch) {
+                   const iframeMatch = divMatch[1].match(/<iframe[^>]+src=["']([^"']+)["']/i);
+                   if (iframeMatch) {
+                       const iframeSrc = iframeMatch[1];
+                       const embedUrl = iframeSrc.startsWith("http") ? iframeSrc : `${manifest.baseUrl}${iframeSrc}`;
+                       results.push({
+                           url: embedUrl,
+                           quality: "Auto",
+                           name: serverName
+                       });
+                   }
+               }
+            }
+            
+            if (results.length > 0) {
+                return cb({ success: true, data: results });
+            }
+            
+            // Fallback
             const iframeMatch = html.match(/<iframe[^>]+src=["']([^"']+)["']/i);
             if (!iframeMatch) return cb({ success: false, message: "Could not find video player iframe." });
             
