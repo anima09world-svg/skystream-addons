@@ -1,0 +1,12 @@
+{
+  "packageName": "com.skystream.animejoker",
+  "name": "AnimeJoker",
+  "version": 5,
+  "author": "displaygamer",
+  "baseUrl": "https://animejoker.com",
+  "domains": [
+    { "name": "animejoker.com", "url": "https://animejoker.com" }
+  ],
+  "languages": ["en"],
+  "categories": ["Anime"]
+}
