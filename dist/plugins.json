@@ -1,23 +1,22 @@
 [
   {
-    "packageName": "com.skystream.watchanimeworld",
-    "name": "WatchAnimeWorld",
-    "version": 4,
+    "packageName": "com.skystream.animejoker",
+    "name": "AnimeJoker",
+    "version": 1,
     "author": "displaygamer",
-    "baseUrl": "https://watchanimeworld.one",
+    "baseUrl": "https://animejoker.com",
     "domains": [
       {
-        "name": "watchanimeworld.one",
-        "url": "https://watchanimeworld.one"
+        "name": "animejoker.com",
+        "url": "https://animejoker.com"
       }
     ],
     "languages": [
-      "hi",
       "en"
     ],
     "categories": [
       "Anime"
     ],
-    "url": "https://raw.githubusercontent.com/anima09world-svg/skystream-addons/main/dist/com.skystream.watchanimeworld.sky"
+    "url": "https://raw.githubusercontent.com/anima09world-svg/skystream-addons/main/dist/com.skystream.animejoker.sky"
   }
 ]
