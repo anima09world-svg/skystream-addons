@@ -45,10 +45,11 @@
             
             if (url && title && !url.includes('/episode/') && !url.includes('${')) {
                 title = title.replace(/\s*(?:\(\d{4}\)|Season|BluRay|HD|Multi Audio|Dual Audio|Hindi|Tamil|Telugu|\[).*$/i, '').replace(/[\(\)-]+$/, '').trim();
+                const isMovie = url.includes('/movies/') || url.includes('/movie/');
                 results.push(new MultimediaItem({
                     title: title,
                     url: url,
-                    type: 'tv',
+                    type: isMovie ? 'movie' : 'tv',
                     posterUrl: posterUrl
                 }));
             }
@@ -179,11 +180,13 @@
                 description = description.replace(/\s{2,}/g, " ");
             }
             
+            const isMovie = url.includes('/movies/') || url.includes('/movie/');
+            
             cb({ success: true, data: new MultimediaItem({
                 title: title,
                 url: url,
-                type: 'tv',
-                episodes: episodes,
+                type: isMovie ? 'movie' : 'tv',
+                episodes: isMovie ? undefined : episodes,
                 posterUrl: poster,
                 description: description
             }) });
